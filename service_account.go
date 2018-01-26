@@ -30,17 +30,17 @@ func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
 	params["side"] = string(or.Side)
 	params["type"] = string(or.Type)
 	params["timeInForce"] = string(or.TimeInForce)
-	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', 10, 64)
-	params["price"] = strconv.FormatFloat(or.Price, 'f', 10, 64)
+	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
+	params["price"] = strconv.FormatFloat(or.Price, 'f', -1, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(or.Timestamp), 10)
 	if or.NewClientOrderID != "" {
 		params["newClientOrderId"] = or.NewClientOrderID
 	}
 	if or.StopPrice != 0 {
-		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', 10, 64)
+		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', -1, 64)
 	}
 	if or.IcebergQty != 0 {
-		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', 10, 64)
+		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', -1, 64)
 	}
 
 	res, err := as.request("POST", "api/v3/order", params, true, true)
@@ -86,17 +86,17 @@ func (as *apiService) NewOrderTest(or NewOrderRequest) error {
 	params["side"] = string(or.Side)
 	params["type"] = string(or.Type)
 	params["timeInForce"] = string(or.TimeInForce)
-	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', 10, 64)
-	params["price"] = strconv.FormatFloat(or.Price, 'f', 10, 64)
+	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
+	params["price"] = strconv.FormatFloat(or.Price, 'f', -1, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(or.Timestamp), 10)
 	if or.NewClientOrderID != "" {
 		params["newClientOrderId"] = or.NewClientOrderID
 	}
 	if or.StopPrice != 0 {
-		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', 10, 64)
+		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', -1, 64)
 	}
 	if or.IcebergQty != 0 {
-		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', 10, 64)
+		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', -1, 64)
 	}
 
 	res, err := as.request("POST", "api/v3/order/test", params, true, true)
@@ -435,7 +435,7 @@ func (as *apiService) Withdraw(wr WithdrawRequest) (*WithdrawResult, error) {
 	params := make(map[string]string)
 	params["asset"] = wr.Asset
 	params["address"] = wr.Address
-	params["amount"] = strconv.FormatFloat(wr.Amount, 'f', 10, 64)
+	params["amount"] = strconv.FormatFloat(wr.Amount, 'f', -1, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(wr.Timestamp), 10)
 	if wr.RecvWindow != 0 {
 		params["recvWindow"] = strconv.FormatInt(recvWindow(wr.RecvWindow), 10)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -336,66 +337,174 @@ func (as *apiService) UserDataWebsocket(urwr UserDataWebsocketRequest) (chan *Ac
 					level.Error(as.Logger).Log("wsRead", err)
 					return
 				}
-				rawAccount := struct {
-					Type            string  `json:"e"`
-					Time            float64 `json:"E"`
-					OpenTime        float64 `json:"t"`
-					MakerCommision  int64   `json:"m"`
-					TakerCommision  int64   `json:"t"`
-					BuyerCommision  int64   `json:"b"`
-					SellerCommision int64   `json:"s"`
-					CanTrade        bool    `json:"T"`
-					CanWithdraw     bool    `json:"W"`
-					CanDeposit      bool    `json:"D"`
-					Balances        []struct {
-						Asset            string `json:"a"`
-						AvailableBalance string `json:"f"`
-						Locked           string `json:"l"`
-					} `json:"B"`
+
+				// get payload type
+				payload := struct {
+					Type string `json:"e"`
 				}{}
-				if err := json.Unmarshal(message, &rawAccount); err != nil {
+				if err := json.Unmarshal(message, &payload); err != nil {
 					level.Error(as.Logger).Log("wsUnmarshal", err, "body", string(message))
 					return
 				}
-				t, err := timeFromUnixTimestampFloat(rawAccount.Time)
-				if err != nil {
-					level.Error(as.Logger).Log("wsUnmarshal", err, "body", rawAccount.Time)
-					return
-				}
 
-				ae := &AccountEvent{
-					WSEvent: WSEvent{
-						Type: rawAccount.Type,
-						Time: t,
-					},
-					Account: Account{
-						MakerCommision:  rawAccount.MakerCommision,
-						TakerCommision:  rawAccount.TakerCommision,
-						BuyerCommision:  rawAccount.BuyerCommision,
-						SellerCommision: rawAccount.SellerCommision,
-						CanTrade:        rawAccount.CanTrade,
-						CanWithdraw:     rawAccount.CanWithdraw,
-						CanDeposit:      rawAccount.CanDeposit,
-					},
-				}
-				for _, b := range rawAccount.Balances {
-					free, err := floatFromString(b.AvailableBalance)
-					if err != nil {
-						level.Error(as.Logger).Log("wsUnmarshal", err, "body", b.AvailableBalance)
+				level.Error(as.Logger).Log("payload", payload, "type", payload.Type)
+
+				// deal with different payload types
+				if payload.Type == "outboundAccountInfo" {
+					rawAccount := struct {
+						Type            string  `json:"e"`
+						Time            float64 `json:"E"`
+						OpenTime        float64 `json:"t"`
+						MakerCommision  int64   `json:"m"`
+						TakerCommision  int64   `json:"t"`
+						BuyerCommision  int64   `json:"b"`
+						SellerCommision int64   `json:"s"`
+						CanTrade        bool    `json:"T"`
+						CanWithdraw     bool    `json:"W"`
+						CanDeposit      bool    `json:"D"`
+						Balances        []struct {
+							Asset            string `json:"a"`
+							AvailableBalance string `json:"f"`
+							Locked           string `json:"l"`
+						} `json:"B"`
+					}{}
+
+					if err := json.Unmarshal(message, &rawAccount); err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", string(message))
 						return
 					}
-					locked, err := floatFromString(b.Locked)
+
+					t, err := timeFromUnixTimestampFloat(rawAccount.Time)
 					if err != nil {
-						level.Error(as.Logger).Log("wsUnmarshal", err, "body", b.Locked)
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", rawAccount.Time)
 						return
 					}
-					ae.Balances = append(ae.Balances, &Balance{
-						Asset:  b.Asset,
-						Free:   free,
-						Locked: locked,
-					})
+
+					ae := &AccountEvent{
+						WSEvent: WSEvent{
+							Type: rawAccount.Type,
+							Time: t,
+						},
+						Account: Account{
+							MakerCommision:  rawAccount.MakerCommision,
+							TakerCommision:  rawAccount.TakerCommision,
+							BuyerCommision:  rawAccount.BuyerCommision,
+							SellerCommision: rawAccount.SellerCommision,
+							CanTrade:        rawAccount.CanTrade,
+							CanWithdraw:     rawAccount.CanWithdraw,
+							CanDeposit:      rawAccount.CanDeposit,
+						},
+						ExecutedOrder: ExecutedOrder{},
+					}
+					for _, b := range rawAccount.Balances {
+						free, err := floatFromString(b.AvailableBalance)
+						if err != nil {
+							level.Error(as.Logger).Log("wsUnmarshal", err, "body", b.AvailableBalance)
+							return
+						}
+						locked, err := floatFromString(b.Locked)
+						if err != nil {
+							level.Error(as.Logger).Log("wsUnmarshal", err, "body", b.Locked)
+							return
+						}
+						ae.Balances = append(ae.Balances, &Balance{
+							Asset:  b.Asset,
+							Free:   free,
+							Locked: locked,
+						})
+					}
+
+					// submit data to channel
+					aech <- ae
+				} else if payload.Type == "executionReport" {
+					rawOrderUpdate := struct {
+						Type                     string  `json:"e"`
+						Time                     float64 `json:"E"`
+						Symbol                   string  `json:"s"`
+						ClientOrderID            string  `json:"c"`
+						Side                     string  `json:"S"`
+						OrderType                string  `json:"o"`
+						TimeInForce              string  `json:"f"`
+						Quantity                 string  `json:"q"`
+						Price                    string  `json:"p"`
+						StopPrice                string  `json:"P"`
+						IcebergQty               string  `json:"F"`
+						OriginalClientOrderID    string  `json:"C"`
+						ExecutionType            string  `json:"x"`
+						Status                   string  `json:"X"`
+						OrderRejectReason        string  `json:"r"`
+						OrderID                  int     `json:"i"`
+						LastExecutedQuantity     string  `json:"l"`
+						CumulativeFilledQuantity string  `json:"z"`
+						LastExecutedPrice        string  `json:"L"`
+						CommissionAmount         string  `json:"n"`
+						TransactionTime          float64 `json:"T"`
+						TradeID                  float64 `json:"t"`
+					}{}
+
+					if err := json.Unmarshal(message, &rawOrderUpdate); err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", string(message))
+						return
+					}
+
+					t, err := timeFromUnixTimestampFloat(rawOrderUpdate.Time)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", rawOrderUpdate.Time)
+						return
+					}
+
+					price, err := strconv.ParseFloat(rawOrderUpdate.Price, 64)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", "cannot parse Price")
+						return
+					}
+					origQty, err := strconv.ParseFloat(rawOrderUpdate.Quantity, 64)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", "cannot parse origQty")
+						return
+					}
+					execQty, err := strconv.ParseFloat(rawOrderUpdate.LastExecutedQuantity, 64)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", "cannot parse execQty")
+						return
+					}
+					stopPrice, err := strconv.ParseFloat(rawOrderUpdate.StopPrice, 64)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", "cannot parse stopPrice")
+						return
+					}
+					icebergQty, err := strconv.ParseFloat(rawOrderUpdate.IcebergQty, 64)
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", "cannot parse icebergQty")
+						return
+					}
+
+					ae := &AccountEvent{
+						WSEvent: WSEvent{
+							Type: rawOrderUpdate.Type,
+							Time: t,
+						},
+						Account: Account{},
+						ExecutedOrder: ExecutedOrder{
+							Symbol:        rawOrderUpdate.Symbol,
+							OrderID:       rawOrderUpdate.OrderID,
+							ClientOrderID: rawOrderUpdate.ClientOrderID,
+							Price:         price,
+							OrigQty:       origQty,
+							ExecutedQty:   execQty,
+							Status:        OrderStatus(rawOrderUpdate.Status),
+							TimeInForce:   TimeInForce(rawOrderUpdate.TimeInForce),
+							Type:          OrderType(rawOrderUpdate.Type),
+							Side:          OrderSide(rawOrderUpdate.Side),
+							StopPrice:     stopPrice,
+							IcebergQty:    icebergQty,
+							Time:          t,
+						},
+					}
+
+					// submit data to channel
+					aech <- ae
 				}
-				aech <- ae
 			}
 		}
 	}()
