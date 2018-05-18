@@ -76,6 +76,22 @@ func (as *apiService) DepthWebsocket(dwr DepthWebsocketRequest) (chan *DepthEven
 						Quantity: q,
 					})
 				}
+				for _, a := range rawDepth.AskDepthDelta {
+					p, err := floatFromString(a[0])
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", string(message))
+						return
+					}
+					q, err := floatFromString(a[1])
+					if err != nil {
+						level.Error(as.Logger).Log("wsUnmarshal", err, "body", string(message))
+						return
+					}
+					de.Asks = append(de.Asks, &Order{
+						Price:    p,
+						Quantity: q,
+					})
+				}
 				dech <- de
 			}
 		}
