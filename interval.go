@@ -21,10 +21,14 @@ var (
 	Month          = Interval("1M")
 )
 
-// TimeInForce represents timeInForce enum.
+// Time in force to indicate how long an order will remain active before it is executed or expires.
 type TimeInForce string
 
 var (
+	// GTC (Good-Til-Canceled) orders are effective until they are executed or canceled.
 	GTC = TimeInForce("GTC")
+	// IOC (Immediate or Cancel) orders fills all or part of an order immediately and cancels the remaining part of the order.
 	IOC = TimeInForce("IOC")
+	// FOK (Fill or Kill) orders fills all in its entirety, otherwise, the entire order will be cancelled.
+	FOK = TimeInForce("FOK")
 )

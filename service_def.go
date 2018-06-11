@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 )
 
@@ -18,9 +17,12 @@ import (
 type Service interface {
 	Ping() error
 	Time() (time.Time, error)
+	ExchangeInfo() (*ExchangeInfo, error)
 	OrderBook(obr OrderBookRequest) (*OrderBook, error)
+	Trades(atr TradesRequest) ([]*PublicTrade, error)
 	AggTrades(atr AggTradesRequest) ([]*AggTrade, error)
 	Klines(kr KlinesRequest) ([]*Kline, error)
+	Tickers24() ([]*Ticker24, error)
 	Ticker24(tr TickerRequest) (*Ticker24, error)
 	TickerAllPrices() ([]*PriceTicker, error)
 	TickerAllBooks() ([]*BookTicker, error)
@@ -42,10 +44,12 @@ type Service interface {
 	KeepAliveUserDataStream(s *Stream) error
 	CloseUserDataStream(s *Stream) error
 
+	Tickers24Websocket() (chan *Tickers24Event, chan struct{}, error)
 	DepthWebsocket(dwr DepthWebsocketRequest) (chan *DepthEvent, chan struct{}, error)
 	KlineWebsocket(kwr KlineWebsocketRequest) (chan *KlineEvent, chan struct{}, error)
 	TradeWebsocket(twr TradeWebsocketRequest) (chan *AggTradeEvent, chan struct{}, error)
 	UserDataWebsocket(udwr UserDataWebsocketRequest) (chan *AccountEvent, chan struct{}, error)
+	OrderBookWebsocket(obr OrderBookRequest) (chan *OrderBook, chan struct{}, error)
 }
 
 type apiService struct {
@@ -98,9 +102,9 @@ func (as *apiService) request(method string, endpoint string, params map[string]
 		req.Header.Add("X-MBX-APIKEY", as.APIKey)
 	}
 	if sign {
-		level.Debug(as.Logger).Log("queryString", q.Encode())
+		//level.Debug(as.Logger).Log("queryString", q.Encode())
 		q.Add("signature", as.Signer.Sign([]byte(q.Encode())))
-		level.Debug(as.Logger).Log("signature", as.Signer.Sign([]byte(q.Encode())))
+		//level.Debug(as.Logger).Log("signature", q.Get("signature"))
 	}
 	req.URL.RawQuery = q.Encode()
 

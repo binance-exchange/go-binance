@@ -32,16 +32,68 @@ func (as *apiService) Time() (time.Time, error) {
 	}
 	defer res.Body.Close()
 	var rawTime struct {
-		ServerTime string `json:"serverTime"`
+		ServerTime float64 `json:"serverTime"`
 	}
 	if err := json.Unmarshal(textRes, &rawTime); err != nil {
 		return time.Time{}, errors.Wrap(err, "timeResponse unmarshal failed")
 	}
-	t, err := timeFromUnixTimestampFloat(rawTime)
+	t, err := timeFromUnixTimestampFloat(rawTime.ServerTime)
 	if err != nil {
 		return time.Time{}, err
 	}
 	return t, nil
+}
+
+func (as *apiService) ExchangeInfo() (*ExchangeInfo, error) {
+	res, err := as.request("GET", "api/v1/exchangeInfo", nil, false, false)
+	if err != nil {
+		return nil, err
+	}
+	textRes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read response from Time")
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		as.handleError(textRes)
+	}
+
+	rawExchangeInfo := &struct {
+		Symbols []map[string]interface{} `json:"symbols"`
+	}{}
+	if err := json.Unmarshal(textRes, rawExchangeInfo); err != nil {
+		return nil, errors.Wrap(err, "timeResponse unmarshal failed")
+	}
+	exInfo := &ExchangeInfo{
+		Symbols: []Symbol{},
+	}
+	for _, s := range rawExchangeInfo.Symbols {
+		symbol := s["symbol"].(string)
+		status := s["status"].(string)
+		quoteAsset := s["quoteAsset"].(string)
+		quotePrecision := int(s["quotePrecision"].(float64))
+		baseAsset := s["baseAsset"].(string)
+		baseAssetPrecision := int(s["baseAssetPrecision"].(float64))
+
+		filters := []map[string]interface{}{}
+
+		for _, f := range s["filters"].([]interface{}) {
+			filters = append(filters, f.(map[string]interface{}))
+		}
+
+		si := Symbol{
+			Symbol:             symbol,
+			Status:             status,
+			QuoteAsset:         quoteAsset,
+			QuotePrecision:     quotePrecision,
+			BaseAsset:          baseAsset,
+			BaseAssetPrecision: baseAssetPrecision,
+			Filters:            filters,
+		}
+		exInfo.Symbols = append(exInfo.Symbols, si)
+	}
+	return exInfo, nil
 }
 
 func (as *apiService) OrderBook(obr OrderBookRequest) (*OrderBook, error) {
@@ -106,6 +158,61 @@ func (as *apiService) OrderBook(obr OrderBookRequest) (*OrderBook, error) {
 	}
 
 	return ob, nil
+}
+func (as *apiService) Trades(req TradesRequest) ([]*PublicTrade, error) {
+	params := make(map[string]string)
+	params["symbol"] = req.Symbol
+	if req.Limit != 0 {
+		params["limit"] = strconv.Itoa(req.Limit)
+	}
+
+	res, err := as.request("GET", "api/v1/trades", params, false, false)
+	if err != nil {
+		return nil, err
+	}
+	textRes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read response from AggTrades")
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		as.handleError(textRes)
+	}
+
+	rawTrades := []struct {
+		ID             int    `json:"id"`
+		Price          string `json:"price"`
+		Quantity       string `json:"qty"`
+		Timestamp      int64  `json:"time"`
+		BuyerMaker     bool   `json:"isBuyerMaker"`
+		BestPriceMatch bool   `json:"isBestMatch"`
+	}{}
+	if err := json.Unmarshal(textRes, &rawTrades); err != nil {
+		return nil, errors.Wrap(err, "trades unmarshal failed")
+	}
+	trades := []*PublicTrade{}
+	for _, rawTrade := range rawTrades {
+		price, err := floatFromString(rawTrade.Price)
+		if err != nil {
+			return nil, err
+		}
+		quantity, err := floatFromString(rawTrade.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		t := time.Unix(0, rawTrade.Timestamp*int64(time.Millisecond))
+
+		trades = append(trades, &PublicTrade{
+			ID:             rawTrade.ID,
+			Price:          price,
+			Quantity:       quantity,
+			Timestamp:      t,
+			BuyerMaker:     rawTrade.BuyerMaker,
+			BestPriceMatch: rawTrade.BestPriceMatch,
+		})
+	}
+	return trades, nil
 }
 
 func (as *apiService) AggTrades(atr AggTradesRequest) ([]*AggTrade, error) {
@@ -272,6 +379,130 @@ func (as *apiService) Klines(kr KlinesRequest) ([]*Kline, error) {
 	return klines, nil
 }
 
+func (as *apiService) Tickers24() ([]*Ticker24, error) {
+	res, err := as.request("GET", "api/v1/ticker/24hr", nil, false, false)
+	if err != nil {
+		return nil, err
+	}
+	textRes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read response from Ticker/24hr")
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		as.handleError(textRes)
+	}
+
+	rawTickers24 := []struct {
+		Symbol             string  `json:"symbol"`
+		PriceChange        string  `json:"priceChange"`
+		PriceChangePercent string  `json:"priceChangePercent"`
+		WeightedAvgPrice   string  `json:"weightedAvgPrice"`
+		PrevClosePrice     string  `json:"prevClosePrice"`
+		LastPrice          string  `json:"lastPrice"`
+		BidPrice           string  `json:"bidPrice"`
+		AskPrice           string  `json:"askPrice"`
+		OpenPrice          string  `json:"openPrice"`
+		HighPrice          string  `json:"highPrice"`
+		LowPrice           string  `json:"lowPrice"`
+		QuoteVolume        string  `json:"quoteVolume"`
+		Volume             string  `json:"volume"`
+		OpenTime           float64 `json:"openTime"`
+		CloseTime          float64 `json:"closeTime"`
+		FirstID            int
+		LastID             int
+		Count              int
+	}{}
+	if err := json.Unmarshal(textRes, &rawTickers24); err != nil {
+		return nil, errors.Wrap(err, "rawTickers24 unmarshal failed")
+	}
+
+	ts24 := []*Ticker24{}
+
+	for _, rawTicker24 := range rawTickers24 {
+		pc, err := strconv.ParseFloat(rawTicker24.PriceChange, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.PriceChange")
+		}
+		pcPercent, err := strconv.ParseFloat(rawTicker24.PriceChangePercent, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.PriceChangePercent")
+		}
+		wap, err := strconv.ParseFloat(rawTicker24.WeightedAvgPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.WeightedAvgPrice")
+		}
+		pcp, err := strconv.ParseFloat(rawTicker24.PrevClosePrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.PrevClosePrice")
+		}
+		lastPrice, err := strconv.ParseFloat(rawTicker24.LastPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.LastPrice")
+		}
+		bp, err := strconv.ParseFloat(rawTicker24.BidPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.BidPrice")
+		}
+		ap, err := strconv.ParseFloat(rawTicker24.AskPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.AskPrice")
+		}
+		op, err := strconv.ParseFloat(rawTicker24.OpenPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.OpenPrice")
+		}
+		hp, err := strconv.ParseFloat(rawTicker24.HighPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.HighPrice")
+		}
+		lowPrice, err := strconv.ParseFloat(rawTicker24.LowPrice, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.LowPrice")
+		}
+		qvol, err := strconv.ParseFloat(rawTicker24.QuoteVolume, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.QuoteVolume")
+		}
+		vol, err := strconv.ParseFloat(rawTicker24.Volume, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.Volume")
+		}
+		ot, err := timeFromUnixTimestampFloat(rawTicker24.OpenTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.OpenTime")
+		}
+		ct, err := timeFromUnixTimestampFloat(rawTicker24.CloseTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse Ticker24.CloseTime")
+		}
+		t24 := &Ticker24{
+			Symbol:             rawTicker24.Symbol,
+			PriceChange:        pc,
+			PriceChangePercent: pcPercent,
+			WeightedAvgPrice:   wap,
+			PrevClosePrice:     pcp,
+			LastPrice:          lastPrice,
+			BidPrice:           bp,
+			AskPrice:           ap,
+			OpenPrice:          op,
+			HighPrice:          hp,
+			LowPrice:           lowPrice,
+			QuoteVolume:        qvol,
+			Volume:             vol,
+			OpenTime:           ot,
+			CloseTime:          ct,
+			FirstID:            rawTicker24.FirstID,
+			LastID:             rawTicker24.LastID,
+			Count:              rawTicker24.Count,
+		}
+		ts24 = append(ts24, t24)
+	}
+
+	return ts24, nil
+}
+
 func (as *apiService) Ticker24(tr TickerRequest) (*Ticker24, error) {
 	params := make(map[string]string)
 	params["symbol"] = tr.Symbol
@@ -301,6 +532,7 @@ func (as *apiService) Ticker24(tr TickerRequest) (*Ticker24, error) {
 		OpenPrice          string  `json:"openPrice"`
 		HighPrice          string  `json:"highPrice"`
 		LowPrice           string  `json:"lowPrice"`
+		QuoteVolume        string  `json:"quoteVolume"`
 		Volume             string  `json:"volume"`
 		OpenTime           float64 `json:"openTime"`
 		CloseTime          float64 `json:"closeTime"`
@@ -352,6 +584,10 @@ func (as *apiService) Ticker24(tr TickerRequest) (*Ticker24, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse Ticker24.LowPrice")
 	}
+	qvol, err := strconv.ParseFloat(rawTicker24.QuoteVolume, 64)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot parse Ticker24.QuoteVolume")
+	}
 	vol, err := strconv.ParseFloat(rawTicker24.Volume, 64)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse Ticker24.Volume")
@@ -365,6 +601,7 @@ func (as *apiService) Ticker24(tr TickerRequest) (*Ticker24, error) {
 		return nil, errors.Wrap(err, "cannot parse Ticker24.CloseTime")
 	}
 	t24 := &Ticker24{
+		Symbol:             tr.Symbol,
 		PriceChange:        pc,
 		PriceChangePercent: pcPercent,
 		WeightedAvgPrice:   wap,
@@ -375,6 +612,7 @@ func (as *apiService) Ticker24(tr TickerRequest) (*Ticker24, error) {
 		OpenPrice:          op,
 		HighPrice:          hp,
 		LowPrice:           lowPrice,
+		QuoteVolume:        qvol,
 		Volume:             vol,
 		OpenTime:           ot,
 		CloseTime:          ct,

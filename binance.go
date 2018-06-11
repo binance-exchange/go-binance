@@ -18,12 +18,18 @@ type Binance interface {
 	Ping() error
 	// Time returns server time.
 	Time() (time.Time, error)
+	// ExchangeInfo returns exchange information
+	ExchangeInfo() (*ExchangeInfo, error)
 	// OrderBook returns list of orders.
 	OrderBook(obr OrderBookRequest) (*OrderBook, error)
+	// Trades returns recent list of trades.
+	Trades(req TradesRequest) ([]*PublicTrade, error)
 	// AggTrades returns compressed/aggregate list of trades.
 	AggTrades(atr AggTradesRequest) ([]*AggTrade, error)
 	// Klines returns klines/candlestick data.
 	Klines(kr KlinesRequest) ([]*Kline, error)
+	// Tickers24 returns all 24hr price change statistics.
+	Tickers24() ([]*Ticker24, error)
 	// Ticker24 returns 24hr price change statistics.
 	Ticker24(tr TickerRequest) (*Ticker24, error)
 	// TickerAllPrices returns ticker data for symbols.
@@ -62,10 +68,12 @@ type Binance interface {
 	// CloseUserDataStream closes opened stream.
 	CloseUserDataStream(s *Stream) error
 
+	Tickers24Websocket() (chan *Tickers24Event, chan struct{}, error)
 	DepthWebsocket(dwr DepthWebsocketRequest) (chan *DepthEvent, chan struct{}, error)
 	KlineWebsocket(kwr KlineWebsocketRequest) (chan *KlineEvent, chan struct{}, error)
 	TradeWebsocket(twr TradeWebsocketRequest) (chan *AggTradeEvent, chan struct{}, error)
 	UserDataWebsocket(udwr UserDataWebsocketRequest) (chan *AccountEvent, chan struct{}, error)
+	OrderBookWebsocket(obr OrderBookRequest) (chan *OrderBook, chan struct{}, error)
 }
 
 type binance struct {
@@ -100,6 +108,24 @@ func (b *binance) Time() (time.Time, error) {
 	return b.Service.Time()
 }
 
+type Symbol struct {
+	Symbol             string
+	Status             string
+	QuoteAsset         string
+	QuotePrecision     int
+	BaseAsset          string
+	BaseAssetPrecision int
+	Filters            []map[string]interface{}
+}
+
+type ExchangeInfo struct {
+	Symbols []Symbol
+}
+
+func (b *binance) ExchangeInfo() (*ExchangeInfo, error) {
+	return b.Service.ExchangeInfo()
+}
+
 // OrderBook represents Bids and Asks.
 type OrderBook struct {
 	LastUpdateID int `json:"lastUpdateId"`
@@ -123,11 +149,16 @@ type Order struct {
 type OrderBookRequest struct {
 	Symbol string
 	Limit  int
+	Level  int
 }
 
 // OrderBook returns list of orders.
 func (b *binance) OrderBook(obr OrderBookRequest) (*OrderBook, error) {
 	return b.Service.OrderBook(obr)
+}
+
+func (b *binance) OrderBookWebsocket(obr OrderBookRequest) (chan *OrderBook, chan struct{}, error) {
+	return b.Service.OrderBookWebsocket(obr)
 }
 
 // AggTrade represents aggregated trade.
@@ -137,6 +168,16 @@ type AggTrade struct {
 	Quantity       float64
 	FirstTradeID   int
 	LastTradeID    int
+	Timestamp      time.Time
+	BuyerMaker     bool
+	BestPriceMatch bool
+}
+
+// Trade represents   trade.
+type PublicTrade struct {
+	ID             int
+	Price          float64
+	Quantity       float64
 	Timestamp      time.Time
 	BuyerMaker     bool
 	BestPriceMatch bool
@@ -154,6 +195,17 @@ type AggTradesRequest struct {
 	StartTime int64
 	EndTime   int64
 	Limit     int
+}
+
+// TradesRequest represents Trades request data.
+type TradesRequest struct {
+	Symbol string
+	Limit  int
+}
+
+// AggTrades returns compressed/aggregate list of trades.
+func (b *binance) Trades(atr TradesRequest) ([]*PublicTrade, error) {
+	return b.Service.Trades(atr)
 }
 
 // AggTrades returns compressed/aggregate list of trades.
@@ -206,6 +258,7 @@ type TickerRequest struct {
 
 // Ticker24 represents data for 24hr ticker.
 type Ticker24 struct {
+	Symbol             string
 	PriceChange        float64
 	PriceChangePercent float64
 	WeightedAvgPrice   float64
@@ -216,12 +269,22 @@ type Ticker24 struct {
 	OpenPrice          float64
 	HighPrice          float64
 	LowPrice           float64
+	QuoteVolume        float64
 	Volume             float64
 	OpenTime           time.Time
 	CloseTime          time.Time
 	FirstID            int
 	LastID             int
 	Count              int
+}
+
+type Tickers24Event struct {
+	Tickers24 []*Ticker24
+}
+
+// Ticker24 returns all 24hr price change statistics.
+func (b *binance) Tickers24() ([]*Ticker24, error) {
+	return b.Service.Tickers24()
 }
 
 // Ticker24 returns 24hr price change statistics.
@@ -266,7 +329,17 @@ type NewOrderRequest struct {
 	StopPrice        float64
 	IcebergQty       float64
 	Timestamp        time.Time
+	ResponseType     OrderResponseType
 }
+
+type OrderResponseType string
+
+const (
+	ORT_UNDEFINED OrderResponseType = ""
+	ORT_ACK       OrderResponseType = "ACK"
+	ORT_RESULT    OrderResponseType = "RESULT"
+	ORT_FULL      OrderResponseType = "FULL"
+)
 
 // ProcessedOrder represents data from processed order.
 type ProcessedOrder struct {
@@ -274,6 +347,32 @@ type ProcessedOrder struct {
 	OrderID       int64
 	ClientOrderID string
 	TransactTime  time.Time
+	Price         float64
+	OrigQty       float64
+	ExecutedQty   float64
+	Status        OrderStatus
+	TimeInForce   TimeInForce
+	Type          OrderType
+	Side          OrderSide
+	Fills         []*OrderFill
+}
+
+func (o *ProcessedOrder) String() string {
+	return fmt.Sprintf("{'Symbol': '%s', 'OrderId': %d, 'ClientOrderId': '%s', 'TransactTime': '%s', 'Price': '%s', 'OrigQty': '%s', 'ExecutedQty': '%s', 'Status': '%s', 'TimeInForce': '%s', 'Type': '%s', 'Side': '%s', 'Fills': '%s' }",
+		o.Symbol, o.OrderID, o.ClientOrderID, o.TransactTime, floatToString(o.Price), floatToString(o.OrigQty), floatToString(o.ExecutedQty), o.Status, o.TimeInForce, o.Type, o.Side, o.Fills)
+}
+
+// OrderFill respresents data from a processed order that depicts if it was filled or not
+type OrderFill struct {
+	Price           float64
+	Quantity        float64
+	Commission      float64
+	CommissionAsset string
+}
+
+func (o *OrderFill) String() string {
+	return fmt.Sprintf("{'Price': '%s', 'Quantity': '%s', 'Commission': '%s', 'CommissionAsset': '%s' }",
+		floatToString(o.Price), floatToString(o.Quantity), floatToString(o.Commission), o.CommissionAsset)
 }
 
 // NewOrder places new order and returns ProcessedOrder.
@@ -298,7 +397,7 @@ type QueryOrderRequest struct {
 // ExecutedOrder represents data about executed order.
 type ExecutedOrder struct {
 	Symbol        string
-	OrderID       int
+	OrderID       int64
 	ClientOrderID string
 	Price         float64
 	OrigQty       float64
@@ -387,6 +486,7 @@ type Account struct {
 type AccountEvent struct {
 	WSEvent
 	Account
+	ExecutedOrder
 }
 
 // Balance groups balance-related information.
@@ -513,6 +613,10 @@ type WSEvent struct {
 	Type   string
 	Time   time.Time
 	Symbol string
+}
+
+func (b *binance) Tickers24Websocket() (chan *Tickers24Event, chan struct{}, error) {
+	return b.Service.Tickers24Websocket()
 }
 
 type DepthWebsocketRequest struct {

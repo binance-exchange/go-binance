@@ -18,9 +18,25 @@ var (
 	StatusRejected        = OrderStatus("REJECTED")
 	StatusExpired         = OrderStatus("EXPIRED")
 
-	TypeLimit  = OrderType("LIMIT")
+	// LIMIT	timeInForce, quantity, price
+	TypeLimit = OrderType("LIMIT")
+	// MARKET	quantity
 	TypeMarket = OrderType("MARKET")
+	// STOP_LOSS	quantity, stopPrice
+	TypeStopLoss = OrderType("STOP_LOSS")
+	// STOP_LOSS_LIMIT	timeInForce, quantity, price, stopPrice
+	TypeStopLossLimit = OrderType("STOP_LOSS_LIMIT")
+	// TAKE_PROFIT	quantity, stopPrice
+	TypeTakeProfit = OrderType("TAKE_PROFIT")
+	// TAKE_PROFIT_LIMIT	timeInForce, quantity, price, stopPrice
+	TypeTakeProfitLimit = OrderType("TAKE_PROFIT_LIMIT")
+	// LIMIT_MAKER	quantity, price
+	TypeLimitMaker = OrderType("LIMIT_MAKER")
 
 	SideBuy  = OrderSide("BUY")
 	SideSell = OrderSide("SELL")
 )
+
+func (o OrderStatus) String() string {
+	return string(o)
+}

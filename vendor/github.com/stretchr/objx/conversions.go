@@ -28,7 +28,7 @@ func (m Map) JSON() (string, error) {
 func (m Map) MustJSON() string {
 	result, err := m.JSON()
 	if err != nil {
-		panic(err.Error())
+		panic(errors.Wrap(err, "MustJson error"))
 	}
 	return result
 }
@@ -58,7 +58,7 @@ func (m Map) Base64() (string, error) {
 func (m Map) MustBase64() string {
 	result, err := m.Base64()
 	if err != nil {
-		panic(err.Error())
+		panic(errors.Wrap(err, "MustBase64 error"))
 	}
 	return result
 }
@@ -85,7 +85,7 @@ func (m Map) SignedBase64(key string) (string, error) {
 func (m Map) MustSignedBase64(key string) string {
 	result, err := m.SignedBase64(key)
 	if err != nil {
-		panic(err.Error())
+		panic(errors.Wrap(err, "MustSignedBase64 error"))
 	}
 	return result
 }

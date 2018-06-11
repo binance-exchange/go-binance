@@ -7,9 +7,10 @@ import (
 	"os/signal"
 	"time"
 
+	binance "github.com/OopsMouse/go-binance"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/binance-exchange/go-binance"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -32,14 +33,21 @@ func main() {
 	)
 	b := binance.NewBinance(binanceService)
 
+	ex, err := b.ExchangeInfo()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%#v\n", ex)
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	kech, done, err := b.TradeWebsocket(binance.TradeWebsocketRequest{
+	kech, done, err := b.OrderBookWebsocket(binance.OrderBookRequest{
 		Symbol: "ETHBTC",
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error starting binance example client trade websocket"))
 	}
 	go func() {
 		for {
@@ -66,7 +74,7 @@ func main() {
 		Interval: binance.Hour,
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error starting binance example client klines"))
 	}
 	fmt.Printf("%#v\n", kl)
 
@@ -80,7 +88,7 @@ func main() {
 		Timestamp:   time.Now(),
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error creating binance example client new order"))
 	}
 	fmt.Println(newOrder)
 
@@ -91,7 +99,7 @@ func main() {
 		Timestamp:  time.Now(),
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error creating binance example client new order query"))
 	}
 	fmt.Printf("%#v\n", res2)
 
@@ -101,7 +109,7 @@ func main() {
 		Timestamp:  time.Now(),
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error getting binance example client open order"))
 	}
 	fmt.Printf("%#v\n", res4)
 
@@ -111,7 +119,7 @@ func main() {
 		Timestamp: time.Now(),
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error binance example client cancel order"))
 	}
 	fmt.Printf("%#v\n", res3)
 
@@ -121,7 +129,7 @@ func main() {
 		Timestamp:  time.Now(),
 	})
 	if err != nil {
-		panic(err)
+		panic(errors.Wrap(err, "Error binance example client get all order"))
 	}
 	fmt.Printf("%#v\n", res5[0])
 
