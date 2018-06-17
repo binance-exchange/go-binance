@@ -37,6 +37,7 @@ type Service interface {
 	Withdraw(wr WithdrawRequest) (*WithdrawResult, error)
 	DepositHistory(hr HistoryRequest) ([]*Deposit, error)
 	WithdrawHistory(hr HistoryRequest) ([]*Withdrawal, error)
+	RecentTrades(hr RecentTradesRequest) ([]*RecentTrades, error)
 
 	StartUserDataStream() (*Stream, error)
 	KeepAliveUserDataStream(s *Stream) error

@@ -43,6 +43,8 @@ type Binance interface {
 	OpenOrders(oor OpenOrdersRequest) ([]*ExecutedOrder, error)
 	// AllOrders returns list of all previous orders.
 	AllOrders(aor AllOrdersRequest) ([]*ExecutedOrder, error)
+	// RecentTrades returns all recent trades
+	RecentTrades(hr RecentTradesRequest) ([]*RecentTrades, error)
 
 	// Account returns account data.
 	Account(ar AccountRequest) (*Account, error)
@@ -486,6 +488,27 @@ type Withdrawal struct {
 func (b *binance) WithdrawHistory(hr HistoryRequest) ([]*Withdrawal, error) {
 	return b.Service.WithdrawHistory(hr)
 }
+
+
+type RecentTradesRequest struct {
+	Symbol  string
+	Limit   int
+}
+
+type RecentTrades struct {
+	ID              int64
+	Price           float64
+	Qty             float64
+	Time            time.Time
+	IsBuyerMaker    bool
+	IsBestMatch     bool
+}
+
+// Recent trades list.
+func (b *binance) RecentTrades(rt RecentTradesRequest) ([]*RecentTrades, error) {
+	return b.Service.RecentTrades(rt)
+}
+
 
 // Stream represents stream information.
 //

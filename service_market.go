@@ -177,6 +177,67 @@ func (as *apiService) AggTrades(atr AggTradesRequest) ([]*AggTrade, error) {
 	return aggTrades, nil
 }
 
+func (as *apiService) RecentTrades(rtr RecentTradesRequest) ([]*RecentTrades, error) {
+	params := make(map[string]string)
+	params["symbol"] = rtr.Symbol
+	if rtr.Limit != 0 {
+		params["limit"] = strconv.Itoa(rtr.Limit)
+	}
+
+	res, err := as.request("GET", "api/v1/trades", params, false, false)
+	if err != nil {
+		return nil, err
+	}
+	textRes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read response from RecentTrades")
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		as.handleError(textRes)
+	}
+
+	var rawRecentTrades []struct {
+		ID              int64   `json:"id"`
+		Price           string  `json:"price"`
+		Qty             string  `json:"qty"`
+		Time            float64 `json:"time"`
+		IsBuyerMaker    bool    `json:"isBuyerMaker"`
+		IsBestMatch     bool    `json:"isBestMatch"`
+	}
+
+	if err := json.Unmarshal(textRes, &rawRecentTrades); err != nil {
+		return nil, errors.Wrap(err, "rawRecentTrades unmarshal failed")
+	}
+
+	var recentTrades []*RecentTrades
+	for _, rrt := range rawRecentTrades {
+		price, err := floatFromString(rrt.Price)
+		if err != nil {
+			return nil, err
+		}
+		qty, err := floatFromString(rrt.Qty)
+		if err != nil {
+			return nil, err
+		}
+
+		t, err := timeFromUnixTimestampFloat(rrt.Time)
+		if err != nil {
+			return nil, err
+		}
+		recentTrades = append(recentTrades, &RecentTrades{
+			ID:              rrt.ID,
+			Price:           price,
+			Qty:             qty,
+			Time:            t,
+			IsBuyerMaker:    rrt.IsBuyerMaker,
+			IsBestMatch:     rrt.IsBestMatch,
+		})
+	}
+	return recentTrades, nil
+}
+
 func (as *apiService) Klines(kr KlinesRequest) ([]*Kline, error) {
 	params := make(map[string]string)
 	params["symbol"] = kr.Symbol
