@@ -3,6 +3,7 @@ package binance
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -10,7 +11,7 @@ import (
 
 type rawExecutedOrder struct {
 	Symbol        string  `json:"symbol"`
-	OrderID       int     `json:"orderId"`
+	OrderID       int64   `json:"orderId"`
 	ClientOrderID string  `json:"clientOrderId"`
 	Price         string  `json:"price"`
 	OrigQty       string  `json:"origQty"`
@@ -24,23 +25,50 @@ type rawExecutedOrder struct {
 	Time          float64 `json:"time"`
 }
 
+type rawExecutedOrderResponse struct {
+	Symbol        string  `json:"symbol"`
+	OrderID       int64   `json:"orderId"`
+	ClientOrderID string  `json:"clientOrderId"`
+	TransactTime  float64 `json:"transactTime"`
+	Price         string  `json:"price"`
+	OrigQty       string  `json:"origQty"`
+	ExecutedQty   string  `json:"executedQty"`
+	Status        string  `json:"status"`
+	TimeInForce   string  `json:"timeInForce"`
+	Type          string  `json:"type"`
+	Side          string  `json:"side"`
+	Fills         []struct {
+		Price           string `json:"price"`
+		Quantity        string `json:"qty"`
+		Commission      string `json:"commission"`
+		CommissionAsset string `json:"commissionAsset"`
+	} `json:"fills"`
+}
+
 func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
 	params := make(map[string]string)
 	params["symbol"] = or.Symbol
 	params["side"] = string(or.Side)
 	params["type"] = string(or.Type)
-	params["timeInForce"] = string(or.TimeInForce)
-	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
-	params["price"] = strconv.FormatFloat(or.Price, 'f', -1, 64)
+	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', 8, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(or.Timestamp), 10)
+	if or.ResponseType != "" && or.ResponseType != ORT_UNDEFINED {
+		params["newOrderRespType"] = string(or.ResponseType)
+	}
 	if or.NewClientOrderID != "" {
 		params["newClientOrderId"] = or.NewClientOrderID
 	}
 	if or.StopPrice != 0 {
-		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', -1, 64)
+		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', 8, 64)
 	}
 	if or.IcebergQty != 0 {
-		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', -1, 64)
+		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', 8, 64)
+	}
+	if string(or.TimeInForce) != "" {
+		params["timeInForce"] = string(or.TimeInForce)
+	}
+	if or.Price > 0 {
+		params["price"] = strconv.FormatFloat(or.Price, 'f', 8, 64)
 	}
 
 	res, err := as.request("POST", "api/v3/order", params, true, true)
@@ -57,12 +85,8 @@ func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
 		return nil, as.handleError(textRes)
 	}
 
-	rawOrder := struct {
-		Symbol        string  `json:"symbol"`
-		OrderID       int64   `json:"orderId"`
-		ClientOrderID string  `json:"clientOrderId"`
-		TransactTime  float64 `json:"transactTime"`
-	}{}
+	log.Println(string(textRes))
+	rawOrder := rawExecutedOrderResponse{}
 	if err := json.Unmarshal(textRes, &rawOrder); err != nil {
 		return nil, errors.Wrap(err, "rawOrder unmarshal failed")
 	}
@@ -72,12 +96,39 @@ func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
 		return nil, err
 	}
 
-	return &ProcessedOrder{
+	result := &ProcessedOrder{
 		Symbol:        rawOrder.Symbol,
 		OrderID:       rawOrder.OrderID,
 		ClientOrderID: rawOrder.ClientOrderID,
 		TransactTime:  t,
-	}, nil
+		Status:        OrderStatus(rawOrder.Status),
+		TimeInForce:   TimeInForce(rawOrder.TimeInForce),
+		Type:          OrderType(rawOrder.Type),
+		Side:          OrderSide(rawOrder.Side),
+	}
+	result.Price, err = floatFromString(rawOrder.Price)
+	result.OrigQty, err = floatFromString(rawOrder.OrigQty)
+	result.ExecutedQty, err = floatFromString(rawOrder.ExecutedQty)
+	result.Price, err = floatFromString(rawOrder.Price)
+	result.Fills = make([]*OrderFill, 0)
+	for _, val := range rawOrder.Fills {
+		fill := &OrderFill{}
+		fill.Price, err = floatFromString(val.Price)
+		if err == nil {
+			fill.Commission, err = floatFromString(val.Commission)
+			if err == nil {
+				fill.Quantity, err = floatFromString(val.Quantity)
+				if err == nil {
+					fill.CommissionAsset = val.CommissionAsset
+				}
+			}
+		}
+		if err == nil {
+			result.Fills = append(result.Fills, fill)
+		}
+	}
+
+	return result, nil
 }
 
 func (as *apiService) NewOrderTest(or NewOrderRequest) error {
@@ -85,18 +136,22 @@ func (as *apiService) NewOrderTest(or NewOrderRequest) error {
 	params["symbol"] = or.Symbol
 	params["side"] = string(or.Side)
 	params["type"] = string(or.Type)
-	params["timeInForce"] = string(or.TimeInForce)
-	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
-	params["price"] = strconv.FormatFloat(or.Price, 'f', -1, 64)
+	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', 8, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(or.Timestamp), 10)
 	if or.NewClientOrderID != "" {
 		params["newClientOrderId"] = or.NewClientOrderID
 	}
 	if or.StopPrice != 0 {
-		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', -1, 64)
+		params["stopPrice"] = strconv.FormatFloat(or.StopPrice, 'f', 8, 64)
 	}
 	if or.IcebergQty != 0 {
-		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', -1, 64)
+		params["icebergQty"] = strconv.FormatFloat(or.IcebergQty, 'f', 8, 64)
+	}
+	if string(or.TimeInForce) != "" {
+		params["timeInForce"] = string(or.TimeInForce)
+	}
+	if or.Price > 0 {
+		params["price"] = strconv.FormatFloat(or.Price, 'f', 8, 64)
 	}
 
 	res, err := as.request("POST", "api/v3/order/test", params, true, true)
@@ -435,7 +490,7 @@ func (as *apiService) Withdraw(wr WithdrawRequest) (*WithdrawResult, error) {
 	params := make(map[string]string)
 	params["asset"] = wr.Asset
 	params["address"] = wr.Address
-	params["amount"] = strconv.FormatFloat(wr.Amount, 'f', 10, 64)
+	params["amount"] = strconv.FormatFloat(wr.Amount, 'f', 8, 64)
 	params["timestamp"] = strconv.FormatInt(unixMillis(wr.Timestamp), 10)
 	if wr.RecvWindow != 0 {
 		params["recvWindow"] = strconv.FormatInt(recvWindow(wr.RecvWindow), 10)

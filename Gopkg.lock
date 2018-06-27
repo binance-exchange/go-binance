@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/OopsMouse/go-binance"
+  packages = ["."]
+  revision = "489176faa80b17a6c7d002cb017e29aa4aaf3947"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -9,7 +15,10 @@
 
 [[projects]]
   name = "github.com/go-kit/kit"
-  packages = ["log","log/level"]
+  packages = [
+    "log",
+    "log/level"
+  ]
   revision = "4dc7be5d2d12881735283bcab7352178e190fc71"
   version = "v0.6.0"
 
@@ -22,8 +31,8 @@
 [[projects]]
   name = "github.com/go-stack/stack"
   packages = ["."]
-  revision = "817915b46b97fd7bb80e8ab6b69f01a53ac3eebf"
-  version = "v1.6.0"
+  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
+  version = "v1.7.0"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -50,20 +59,23 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/stretchr/objx"
   packages = ["."]
-  revision = "1a9d0bb9f541897e62256577b352fdbc1fb4fd94"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert","mock"]
-  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
-  version = "v1.1.4"
+  packages = [
+    "assert",
+    "mock"
+  ]
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "521ff41df5ef0d1a92c36424e13fce1b61e6a2544efddefc1a202be3fff99ba5"
+  inputs-digest = "15d0cf765502254d863e2fe95e052d374a068d25cc892fe4e3864d482fc85125"
   solver-name = "gps-cdcl"
   solver-version = 1

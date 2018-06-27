@@ -10,6 +10,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+func floatToString(val float64) string {
+	return strconv.FormatFloat(val, 'f', 10, 64)
+}
+
 func floatFromString(raw interface{}) (float64, error) {
 	str, ok := raw.(string)
 	if !ok {

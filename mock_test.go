@@ -3,7 +3,7 @@ package binance_test
 import (
 	"time"
 
-	"github.com/binance-exchange/go-binance"
+	"github.com/betazoid/go-binance"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -21,6 +21,11 @@ func (m *ServiceMock) Time() (time.Time, error) {
 	return args.Get(0).(time.Time), args.Error(1)
 }
 
+func (m *ServiceMock) ExchangeInfo() (*binance.ExchangeInfo, error) {
+	args := m.Called()
+	return args.Get(0).(*binance.ExchangeInfo), args.Error(1)
+}
+
 func (m *ServiceMock) OrderBook(obr binance.OrderBookRequest) (*binance.OrderBook, error) {
 	args := m.Called(obr)
 	ob, ok := args.Get(0).(*binance.OrderBook)
@@ -28,6 +33,15 @@ func (m *ServiceMock) OrderBook(obr binance.OrderBookRequest) (*binance.OrderBoo
 		ob = nil
 	}
 	return ob, args.Error(1)
+}
+
+func (m *ServiceMock) Trades(atr binance.TradesRequest) ([]*binance.PublicTrade, error) {
+	args := m.Called(atr)
+	pt, ok := args.Get(0).([]*binance.PublicTrade)
+	if !ok {
+		pt = nil
+	}
+	return pt, args.Error(1)
 }
 
 func (m *ServiceMock) AggTrades(atr binance.AggTradesRequest) ([]*binance.AggTrade, error) {
@@ -46,6 +60,16 @@ func (m *ServiceMock) Klines(kr binance.KlinesRequest) ([]*binance.Kline, error)
 	}
 	return kc, args.Error(1)
 }
+
+func (m *ServiceMock) Tickers24() ([]*binance.Ticker24, error) {
+	args := m.Called()
+	t24, ok := args.Get(0).([]*binance.Ticker24)
+	if !ok {
+		t24 = nil
+	}
+	return t24, args.Error(1)
+}
+
 func (m *ServiceMock) Ticker24(tr binance.TickerRequest) (*binance.Ticker24, error) {
 	args := m.Called(tr)
 	t24, ok := args.Get(0).(*binance.Ticker24)
@@ -170,6 +194,20 @@ func (m *ServiceMock) CloseUserDataStream(s *binance.Stream) error {
 	args := m.Called(s)
 	return args.Error(0)
 }
+
+func (m *ServiceMock) Tickers24Websocket() (chan *binance.Tickers24Event, chan struct{}, error) {
+	args := m.Called()
+	tech, ok := args.Get(0).(chan *binance.Tickers24Event)
+	if !ok {
+		tech = nil
+	}
+	sch, ok := args.Get(0).(chan struct{})
+	if !ok {
+		sch = nil
+	}
+	return tech, sch, args.Error(2)
+}
+
 func (m *ServiceMock) DepthWebsocket(dwr binance.DepthWebsocketRequest) (chan *binance.DepthEvent, chan struct{}, error) {
 	args := m.Called(dwr)
 	dech, ok := args.Get(0).(chan *binance.DepthEvent)
@@ -194,6 +232,7 @@ func (m *ServiceMock) KlineWebsocket(kwr binance.KlineWebsocketRequest) (chan *b
 	}
 	return kech, sch, args.Error(2)
 }
+
 func (m *ServiceMock) TradeWebsocket(twr binance.TradeWebsocketRequest) (chan *binance.AggTradeEvent, chan struct{}, error) {
 	args := m.Called(twr)
 	atech, ok := args.Get(0).(chan *binance.AggTradeEvent)
@@ -206,6 +245,7 @@ func (m *ServiceMock) TradeWebsocket(twr binance.TradeWebsocketRequest) (chan *b
 	}
 	return atech, sch, args.Error(2)
 }
+
 func (m *ServiceMock) UserDataWebsocket(udwr binance.UserDataWebsocketRequest) (chan *binance.AccountEvent, chan struct{}, error) {
 	args := m.Called(udwr)
 	aech, ok := args.Get(0).(chan *binance.AccountEvent)
@@ -217,4 +257,17 @@ func (m *ServiceMock) UserDataWebsocket(udwr binance.UserDataWebsocketRequest) (
 		sch = nil
 	}
 	return aech, sch, args.Error(2)
+}
+
+func (m *ServiceMock) OrderBookWebsocket(obr binance.OrderBookRequest) (chan *binance.OrderBook, chan struct{}, error) {
+	args := m.Called(obr)
+	obch, ok := args.Get(0).(chan *binance.OrderBook)
+	if !ok {
+		obch = nil
+	}
+	sch, ok := args.Get(0).(chan struct{})
+	if !ok {
+		sch = nil
+	}
+	return obch, sch, args.Error(2)
 }
