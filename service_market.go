@@ -16,7 +16,6 @@ func (as *apiService) Ping() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%#v\n", response.StatusCode)
 	return nil
 }
 
