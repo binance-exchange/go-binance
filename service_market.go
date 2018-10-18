@@ -2,7 +2,6 @@ package binance
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -12,11 +11,10 @@ import (
 
 func (as *apiService) Ping() error {
 	params := make(map[string]string)
-	response, err := as.request("GET", "api/v1/ping", params, false, false)
+	_, err := as.request("GET", "api/v1/ping", params, false, false)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%#v\n", response.StatusCode)
 	return nil
 }
 
@@ -32,7 +30,7 @@ func (as *apiService) Time() (time.Time, error) {
 	}
 	defer res.Body.Close()
 	var rawTime struct {
-		ServerTime string `json:"serverTime"`
+		ServerTime int64 `json:"serverTime"`
 	}
 	if err := json.Unmarshal(textRes, &rawTime); err != nil {
 		return time.Time{}, errors.Wrap(err, "timeResponse unmarshal failed")
