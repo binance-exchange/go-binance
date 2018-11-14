@@ -266,6 +266,7 @@ type NewOrderRequest struct {
 	StopPrice        float64
 	IcebergQty       float64
 	Timestamp        time.Time
+	MinQuantity      float64
 }
 
 // ProcessedOrder represents data from processed order.

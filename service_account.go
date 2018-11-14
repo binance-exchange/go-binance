@@ -3,6 +3,7 @@ package binance
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -32,7 +33,11 @@ func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
 	if len(or.TimeInForce) > 0 {
 		params["timeInForce"] = string(or.TimeInForce)
 	}
-	params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
+	if or.MinQuantity > 0 {
+		params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', int(math.Log10(1/or.MinQuantity)), 64)
+	} else {
+		params["quantity"] = strconv.FormatFloat(or.Quantity, 'f', -1, 64)
+	}
 	if or.Price > 0 {
 		params["price"] = strconv.FormatFloat(or.Price, 'f', -1, 64)
 	}
