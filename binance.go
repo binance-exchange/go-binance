@@ -1,6 +1,7 @@
 package binance
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -54,6 +55,8 @@ type Binance interface {
 	DepositHistory(hr HistoryRequest) ([]*Deposit, error)
 	// WithdrawHistory lists withdraw data.
 	WithdrawHistory(hr HistoryRequest) ([]*Withdrawal, error)
+	// ExchangeInfo displays exchange metadata
+	ExchangeInfo() (*ExchangeInfo, error)
 
 	// StartUserDataStream starts stream and returns Stream with ListenKey.
 	StartUserDataStream() (*Stream, error)
@@ -546,4 +549,70 @@ type UserDataWebsocketRequest struct {
 
 func (b *binance) UserDataWebsocket(udwr UserDataWebsocketRequest) (chan *AccountEvent, chan struct{}, error) {
 	return b.Service.UserDataWebsocket(udwr)
+}
+
+type RateLimitType string
+
+var (
+	RequestsWeight = RateLimitType("REQUESTS_WEIGHT")
+	Orders         = RateLimitType("ORDERS")
+	RawRequests    = RateLimitType("RAW_REQUESTS")
+)
+
+type RateLimit struct {
+	RateLimitType RateLimitType
+	Interval      Interval
+	IntervalNum   int
+	Limit         int
+}
+
+type PairStatus string
+
+var (
+	PreTrading   = PairStatus("PRE_TRADING")
+	Trading      = PairStatus("TRADING")
+	PostTrading  = PairStatus("POST_TRADING")
+	EndOfDay     = PairStatus("END_OF_DAY")
+	Halt         = PairStatus("HALT")
+	AuctionMatch = PairStatus("AUCTION_MATCH")
+	Break        = PairStatus("BREAK")
+)
+
+type Pair struct {
+	Symbol             string
+	Status             PairStatus
+	BaseAsset          string
+	BaseAssetPrecision int
+	QuoteAsset         string
+	QuotePrecision     int
+	OrderTypes         []OrderType
+	IcebergAllowed     bool
+}
+
+type ExchangeInfo struct {
+	Timezone   string
+	ServerTime time.Time
+	RateLimits []*RateLimit
+	Symbols    []*Pair
+}
+
+func (ex *ExchangeInfo) UnmarshalJSON(b []byte) error {
+	info := &struct {
+		Timezone   string
+		ServerTime int64
+		RateLimits []*RateLimit
+		Symbols    []*Pair
+	}{}
+	if err := json.Unmarshal(b, info); err != nil {
+		return err
+	}
+	ex.Timezone = info.Timezone
+	ex.ServerTime = time.Unix(info.ServerTime/1000, info.ServerTime%1000)
+	ex.RateLimits = info.RateLimits
+	ex.Symbols = info.Symbols
+	return nil
+}
+
+func (b *binance) ExchangeInfo() (*ExchangeInfo, error) {
+	return b.Service.ExchangeInfo()
 }

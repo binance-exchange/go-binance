@@ -218,3 +218,6 @@ func (m *ServiceMock) UserDataWebsocket(udwr binance.UserDataWebsocketRequest) (
 	}
 	return aech, sch, args.Error(2)
 }
+func (m *ServiceMock) ExchangeInfo() (*binance.ExchangeInfo, error) {
+	return nil, nil
+}
