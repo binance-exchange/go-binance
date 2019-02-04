@@ -97,13 +97,18 @@ func (as *apiService) request(method string, endpoint string, params map[string]
 	if apiKey {
 		req.Header.Add("X-MBX-APIKEY", as.APIKey)
 	}
+	req.URL.RawQuery = q.Encode()
 	if sign {
 		level.Debug(as.Logger).Log("queryString", q.Encode())
-		q.Add("signature", as.Signer.Sign([]byte(q.Encode())))
-		level.Debug(as.Logger).Log("signature", as.Signer.Sign([]byte(q.Encode())))
+		signed := as.Signer.Sign([]byte(q.Encode()))
+		if len(q) > 0 {
+			req.URL.RawQuery += "&signature=" + signed
+		} else {
+			q.Add("signature", signed)
+			req.URL.RawQuery = q.Encode()
+		}
+		level.Debug(as.Logger).Log("signature", signed)
 	}
-	req.URL.RawQuery = q.Encode()
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
