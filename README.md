@@ -1,7 +1,7 @@
 # Binance API
 
 To read full documentation, specs and find out which request params are required/optional, please visit the official
-[documentation](https://www.binance.com/restapipub.html) page.
+[documentation](https://github.com/binance-exchange/binance-official-api-docs) page.
 
 ## Getting started
 
