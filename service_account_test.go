@@ -65,17 +65,18 @@ func TestQueryOrder(t *testing.T) {
 		Timestamp:         time.Now(),
 	}
 	eo := &binance.ExecutedOrder{
-		Symbol:        "BNBETH",
-		OrderID:       123,
-		ClientOrderID: "clientOrderID",
-		Price:         10.23,
-		OrigQty:       10.00,
-		ExecutedQty:   4.44,
-		Status:        binance.StatusPartiallyFilled,
-		TimeInForce:   binance.GTC,
-		Type:          binance.TypeLimit,
-		Side:          binance.SideBuy,
-		Time:          time.Now(),
+		Symbol:        	     "BNBETH",
+		OrderID:       	     123,
+		ClientOrderID: 	     "clientOrderID",
+		CummulativeQuoteQty: 45.4212,
+		Price:         	     10.23,
+		OrigQty:       	     10.00,
+		ExecutedQty:   	     4.44,
+		Status:        	     binance.StatusPartiallyFilled,
+		TimeInForce:   	     binance.GTC,
+		Type:          	     binance.TypeLimit,
+		Side:          	     binance.SideBuy,
+		Time:          	     time.Now(),
 	}
 
 	binanceService.On("QueryOrder", qor).Return(eo, nil)
