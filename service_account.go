@@ -9,20 +9,20 @@ import (
 )
 
 type rawExecutedOrder struct {
-	Symbol        			string  `json:"symbol"`
-	OrderID       			int     `json:"orderId"`
-	ClientOrderID 			string  `json:"clientOrderId"`
+	Symbol        	    string  `json:"symbol"`
+	OrderID       	    int     `json:"orderId"`
+	ClientOrderID 	    string  `json:"clientOrderId"`
 	CummulativeQuoteQty string `json:"cummulativeQuoteQty"`
-	Price         			string  `json:"price"`
-	OrigQty       			string  `json:"origQty"`
-	ExecutedQty   			string  `json:"executedQty"`
-	Status        			string  `json:"status"`
-	TimeInForce   			string  `json:"timeInForce"`
-	Type          			string  `json:"type"`
-	Side          			string  `json:"side"`
-	StopPrice     			string  `json:"stopPrice"`
-	IcebergQty    			string  `json:"icebergQty"`
-	Time          			float64 `json:"time"`
+	Price         	    string  `json:"price"`
+	OrigQty       	    string  `json:"origQty"`
+	ExecutedQty   	    string  `json:"executedQty"`
+	Status        	    string  `json:"status"`
+	TimeInForce   	    string  `json:"timeInForce"`
+	Type          	    string  `json:"type"`
+	Side          	    string  `json:"side"`
+	StopPrice     	    string  `json:"stopPrice"`
+	IcebergQty    	    string  `json:"icebergQty"`
+	Time          	    float64 `json:"time"`
 }
 
 func (as *apiService) NewOrder(or NewOrderRequest) (*ProcessedOrder, error) {
@@ -627,24 +627,24 @@ func executedOrderFromRaw(reo *rawExecutedOrder) (*ExecutedOrder, error) {
 		return nil, errors.Wrap(err, "cannot parse Order.CloseTime")
 	}
 	cummulativeQuoteQty, err := strconv.ParseFloat(reo.CummulativeQuoteQty, 64)
-  if err != nil {
-    return nil, errors.Wrap(err, "cannot parse Order.CummulativeQuoteQty")
-  }
+  	if err != nil {
+    		return nil, errors.Wrap(err, "cannot parse Order.CummulativeQuoteQty")
+  	}
 
 	return &ExecutedOrder{
-		Symbol:        			 reo.Symbol,
-		OrderID:       			 reo.OrderID,
+		Symbol:        	     reo.Symbol,
+		OrderID:       	     reo.OrderID,
 		CummulativeQuoteQty: cummulativeQuoteQty,
-		ClientOrderID: 			 reo.ClientOrderID,
-		Price:        		   price,
-		OrigQty:       			 origQty,
-		ExecutedQty:   			 execQty,
-		Status:        			 OrderStatus(reo.Status),
-		TimeInForce:   			 TimeInForce(reo.TimeInForce),
-		Type:          			 OrderType(reo.Type),
-		Side:          			 OrderSide(reo.Side),
-		StopPrice:     			 stopPrice,
-		IcebergQty:    			 icebergQty,
-		Time:          			 t,
+		ClientOrderID: 	     reo.ClientOrderID,
+		Price:        	     price,
+		OrigQty:       	     origQty,
+		ExecutedQty:   	     execQty,
+		Status:        	     OrderStatus(reo.Status),
+		TimeInForce:   	     TimeInForce(reo.TimeInForce),
+		Type:          	     OrderType(reo.Type),
+		Side:          	     OrderSide(reo.Side),
+		StopPrice:     	     stopPrice,
+		IcebergQty:    	     icebergQty,
+		Time:          	     t,
 	}, nil
 }
